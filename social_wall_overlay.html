@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Social Wall Overlay</title>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <style>
         * {
             margin: 0;
@@ -18,14 +17,6 @@
             overflow: hidden;
             width: 100vw;
             height: 100vh;
-        }
-
-        #social-stream-iframe {
-            position: fixed;
-            width: 1px;
-            height: 1px;
-            opacity: 0;
-            pointer-events: none;
         }
 
         .message-container {
@@ -98,11 +89,25 @@
         .fade-out {
             animation: fadeOut 0.3s ease-out forwards;
         }
+
+        #debug {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            color: lime;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 11px;
+            border-radius: 5px;
+            max-width: 300px;
+            z-index: 9999;
+            display: none;
+        }
     </style>
 </head>
 <body>
-    <!-- Social Stream Ninja iframe oculto -->
-    <iframe id="social-stream-iframe" src="https://socialstream.ninja/featured.html?session=qtgxCBvLbF&v=3.40.0&showsource" allow="autoplay"></iframe>
+    <div id="debug"></div>
     
     <script>
         const messages = [];
@@ -112,6 +117,23 @@
             y: window.innerHeight / 2,
             radius: 200
         };
+
+        let debugMode = true; // Cambia a false para ocultar debug
+
+        function debug(msg) {
+            if (debugMode) {
+                const debugDiv = document.getElementById('debug');
+                debugDiv.style.display = 'block';
+                debugDiv.innerHTML += msg + '<br>';
+                console.log(msg);
+                
+                // Limitar líneas de debug
+                const lines = debugDiv.innerHTML.split('<br>');
+                if (lines.length > 10) {
+                    debugDiv.innerHTML = lines.slice(-10).join('<br>');
+                }
+            }
+        }
 
         function getRandomColor() {
             const colors = [
@@ -184,43 +206,65 @@
 
             document.body.appendChild(messageDiv);
             messages.push({ element: messageDiv, username, content });
+            
+            debug(`✓ Mensaje creado: ${username}`);
         }
 
-        // Escuchar mensajes de Social Stream Ninja
+        // Escuchar todos los eventos de mensaje
         window.addEventListener('message', (event) => {
-            console.log('Mensaje recibido:', event.data); // Debug
+            debug(`📩 Evento recibido de: ${event.origin}`);
             
             try {
                 const data = event.data;
+                debug(`📦 Data: ${JSON.stringify(data).substring(0, 100)}`);
                 
-                // Social Stream Ninja envía los datos en diferentes formatos
-                if (data && (data.type === 'chatmessage' || data.chatmessage)) {
-                    const username = data.chatname || data.username || data.author || 'Usuario';
-                    const content = data.chatmessage || data.message || data.text || '';
-                    
-                    console.log('Creando mensaje:', username, content); // Debug
-                    
-                    if (content && content.trim()) {
-                        createMessage(username, content);
+                // Diferentes formatos que SSN puede enviar
+                let username = null;
+                let content = null;
+                
+                if (data) {
+                    // Formato 1: Objeto con chatmessage
+                    if (data.chatmessage) {
+                        username = data.chatname || data.username || data.author || 'Usuario';
+                        content = data.chatmessage;
+                    }
+                    // Formato 2: Objeto con message
+                    else if (data.message) {
+                        username = data.chatname || data.username || data.author || data.name || 'Usuario';
+                        content = data.message;
+                    }
+                    // Formato 3: type chatmessage
+                    else if (data.type === 'chatmessage') {
+                        username = data.chatname || data.username || data.author || 'Usuario';
+                        content = data.text || data.msg || data.content;
                     }
                 }
+                
+                if (content && content.trim()) {
+                    debug(`✅ Procesando: ${username}: ${content}`);
+                    createMessage(username, content);
+                } else {
+                    debug(`⚠️ Sin contenido válido`);
+                }
             } catch (error) {
+                debug(`❌ Error: ${error.message}`);
                 console.error('Error procesando mensaje:', error);
             }
         });
 
-        // Función de prueba - puedes llamarla desde la consola
-        window.testMessage = function(username, message) {
-            createMessage(username || 'Usuario Test', message || 'Mensaje de prueba');
+        // Mensajes de prueba automáticos
+        debug('🚀 Sistema iniciado');
+        setTimeout(() => createMessage('Ken Lee', '¡Increíble presentación! 🎉'), 1000);
+        setTimeout(() => createMessage('Steven Black', 'HECK YEAH'), 2000);
+        setTimeout(() => createMessage('Kristian Brandt', "I'm so excited! 🎬"), 3000);
+        setTimeout(() => createMessage('Fitzroy Sam', 'Amazing! 😍'), 4000);
+        
+        // Función de prueba manual
+        window.testMessage = function(u, m) {
+            createMessage(u || 'Test User', m || 'Test message');
         };
-
-        // MENSAJES DE PRUEBA AUTOMÁTICOS - Descomenta para probar sin chat real
-        setTimeout(() => createMessage('Ken Lee', '¡Increíble presentación! 🎉'), 500);
-        setTimeout(() => createMessage('Steven Black', 'HECK YEAH'), 1000);
-        setTimeout(() => createMessage('Kristian Brandt', "I'm so excited to submit my video! 🎬"), 1500);
-        setTimeout(() => createMessage('Fitzroy Sam', 'Amazing as usual! 😍'), 2000);
-        setTimeout(() => createMessage('Luis Barahor', '¡Hola! Thank you'), 2500);
-        setTimeout(() => createMessage('Randy P', 'Awesome. Thank you'), 3000);
+        
+        debug('💡 Escribe en consola: testMessage("Nombre", "Mensaje")');
     </script>
 </body>
 </html>
