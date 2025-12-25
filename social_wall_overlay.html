@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Social Wall Overlay</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <style>
         * {
             margin: 0;
@@ -187,15 +188,19 @@
 
         // Escuchar mensajes de Social Stream Ninja
         window.addEventListener('message', (event) => {
+            console.log('Mensaje recibido:', event.data); // Debug
+            
             try {
                 const data = event.data;
                 
                 // Social Stream Ninja envía los datos en diferentes formatos
-                if (data.type === 'chatmessage' || data.chatmessage) {
-                    const username = data.chatname || data.username || 'Usuario';
-                    const content = data.chatmessage || data.message || '';
+                if (data && (data.type === 'chatmessage' || data.chatmessage)) {
+                    const username = data.chatname || data.username || data.author || 'Usuario';
+                    const content = data.chatmessage || data.message || data.text || '';
                     
-                    if (content) {
+                    console.log('Creando mensaje:', username, content); // Debug
+                    
+                    if (content && content.trim()) {
                         createMessage(username, content);
                     }
                 }
@@ -204,15 +209,18 @@
             }
         });
 
-        // MENSAJES DE PRUEBA - Elimina o comenta esta sección cuando uses con Social Stream Ninja real
-        /*
+        // Función de prueba - puedes llamarla desde la consola
+        window.testMessage = function(username, message) {
+            createMessage(username || 'Usuario Test', message || 'Mensaje de prueba');
+        };
+
+        // MENSAJES DE PRUEBA AUTOMÁTICOS - Descomenta para probar sin chat real
         setTimeout(() => createMessage('Ken Lee', '¡Increíble presentación! 🎉'), 500);
         setTimeout(() => createMessage('Steven Black', 'HECK YEAH'), 1000);
         setTimeout(() => createMessage('Kristian Brandt', "I'm so excited to submit my video! 🎬"), 1500);
         setTimeout(() => createMessage('Fitzroy Sam', 'Amazing as usual! 😍'), 2000);
-        setTimeout(() => createMessage('Luis Barahor', '¡Hola Felippe! Thank you'), 2500);
+        setTimeout(() => createMessage('Luis Barahor', '¡Hola! Thank you'), 2500);
         setTimeout(() => createMessage('Randy P', 'Awesome. Thank you'), 3000);
-        */
     </script>
 </body>
 </html>
