@@ -3,308 +3,257 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Social Wall Overlay</title>
+  <title>social-wall-overlay</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
+    *{margin:0;padding:0;box-sizing:border-box}
     body{
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: transparent;
-      overflow: hidden;
-      width: 100vw;
-      height: 100vh;
+      overflow:hidden;
+      width:100vw;height:100vh;
     }
-
     .message-container{
-      position: fixed;
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 12px;
-      padding: 15px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-      max-width: 320px;
-      animation: slideIn 0.5s ease-out;
-      transition: all 0.3s ease;
-      z-index: 10;
+      position:fixed;
+      background:rgba(255,255,255,.95);
+      border-radius:12px;
+      padding:15px;
+      box-shadow:0 4px 15px rgba(0,0,0,.2);
+      max-width:320px;
+      animation:slideIn .5s ease-out;
+      transition:all .3s ease;
+      z-index:10;
     }
-
     .message-container:hover{
-      transform: scale(1.05);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      transform:scale(1.05);
+      box-shadow:0 6px 20px rgba(0,0,0,.3);
     }
-
-    .message-header{
-      display: flex;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
+    .message-header{display:flex;align-items:center;margin-bottom:10px}
     .avatar{
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: bold;
-      margin-right: 10px;
-      flex-shrink: 0;
-      user-select: none;
+      width:40px;height:40px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      color:#fff;font-weight:700;margin-right:10px;flex-shrink:0;
+      user-select:none;
     }
+    .username{font-weight:700;color:#333;font-size:14px;user-select:none}
+    .message-content{color:#555;font-size:13px;line-height:1.4;white-space:pre-wrap;word-wrap:break-word}
 
-    .username{
-      font-weight: bold;
-      color: #333;
-      font-size: 14px;
-      user-select: none;
-    }
+    @keyframes slideIn{from{opacity:0;transform:scale(.8) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+    @keyframes fadeOut{to{opacity:0;transform:scale(.8)}}
+    .fade-out{animation:fadeOut .3s ease-out forwards}
 
-    .message-content{
-      color: #555;
-      font-size: 13px;
-      line-height: 1.4;
-      word-wrap: break-word;
-      white-space: pre-wrap;
+    /* Status panel (siempre visible) */
+    #status{
+      position:fixed;top:12px;left:12px;
+      background:rgba(0,0,0,.8);color:#fff;
+      padding:10px 12px;border-radius:8px;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;line-height:1.35;
+      z-index:9999;max-width:520px;
     }
+    #status .ok{color:#5CFF7A}
+    #status .warn{color:#FFD65C}
+    #status .bad{color:#FF6B6B}
+    #status small{opacity:.85}
 
-    @keyframes slideIn{
-      from{ opacity: 0; transform: scale(0.8) translateY(20px); }
-      to{ opacity: 1; transform: scale(1) translateY(0); }
+    /* Botón test */
+    #testBtn{
+      position:fixed;bottom:14px;left:14px;
+      z-index:9999;
+      padding:10px 12px;border-radius:10px;border:0;
+      background:rgba(255,255,255,.9);
+      cursor:pointer;
+      box-shadow:0 4px 12px rgba(0,0,0,.25);
+      font-weight:700;
     }
-
-    @keyframes fadeOut{
-      to{ opacity: 0; transform: scale(0.8); }
-    }
-
-    .fade-out{
-      animation: fadeOut 0.3s ease-out forwards;
-    }
-
-    #debug{
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.8);
-      color: lime;
-      padding: 10px;
-      font-family: monospace;
-      font-size: 11px;
-      border-radius: 5px;
-      max-width: 420px;
-      z-index: 9999;
-      display: none;
-      line-height: 1.3;
-    }
+    #testBtn:hover{transform:scale(1.03)}
   </style>
 </head>
 
 <body>
-  <div id="debug"></div>
+  <div id="status">
+    <div><strong>Social Wall Overlay</strong></div>
+    <div id="stLine1">Iniciando…</div>
+    <div id="stLine2"><small>Esperando…</small></div>
+  </div>
+
+  <button id="testBtn" title="Crea una burbuja de prueba">+ Test bubble</button>
 
   <script>
     /********************
-     * CONFIG
+     * CONFIG (desde URL)
      ********************/
-    const SESSION_ID = "qtgxCBvLbF"; // <-- tu session
-    const WS_URL = `wss://io.socialstream.ninja/join/${SESSION_ID}/4`; // canal 4 = chat broadcast
+    const params = new URLSearchParams(location.search);
+    const SESSION_ID = params.get("session") || "";  // obligatorio
+    const debugMode = params.get("debug") === "1";
 
-    // Activá/Desactivá el debug en pantalla
-    let debugMode = true; // true = muestra panel verde | false = oculto
+    const WS_URL = SESSION_ID
+      ? `wss://io.socialstream.ninja/join/${SESSION_ID}/4`
+      : "";
 
     /********************
-     * STATE
+     * STATUS UI
+     ********************/
+    const st1 = document.getElementById("stLine1");
+    const st2 = document.getElementById("stLine2");
+
+    function setStatus(line1, line2, cls) {
+      st1.innerHTML = line1;
+      st2.innerHTML = `<small class="${cls || ""}">${line2}</small>`;
+      if (debugMode) console.log("[STATUS]", line1, line2);
+    }
+
+    /********************
+     * WALL SETTINGS
      ********************/
     const messages = [];
     const maxMessages = 20;
 
-    // Zona “prohibida” al centro, para que no te tape la cara o algo importante
-    const centerZone = {
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-      radius: 200
-    };
+    const centerZone = { x: innerWidth/2, y: innerHeight/2, radius: 200 };
 
-    /********************
-     * DEBUG
-     ********************/
-    function debug(msg) {
-      console.log(msg);
-      if (!debugMode) return;
-
-      const debugDiv = document.getElementById("debug");
-      debugDiv.style.display = "block";
-      debugDiv.innerHTML += msg + "<br>";
-
-      const lines = debugDiv.innerHTML.split("<br>");
-      if (lines.length > 14) {
-        debugDiv.innerHTML = lines.slice(-14).join("<br>");
-      }
-    }
-
-    /********************
-     * UI HELPERS
-     ********************/
-    function getRandomColor() {
+    function getRandomColor(){
       const colors = [
-        "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-        "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-        "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-        "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
-        "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-        "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
-        "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
-        "linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)"
+        "linear-gradient(135deg,#667eea 0%,#764ba2 100%)",
+        "linear-gradient(135deg,#f093fb 0%,#f5576c 100%)",
+        "linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)",
+        "linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)",
+        "linear-gradient(135deg,#fa709a 0%,#fee140 100%)",
+        "linear-gradient(135deg,#30cfd0 0%,#330867 100%)",
+        "linear-gradient(135deg,#a8edea 0%,#fed6e3 100%)",
+        "linear-gradient(135deg,#ff9a9e 0%,#fecfef 100%)"
       ];
-      return colors[Math.floor(Math.random() * colors.length)];
+      return colors[Math.floor(Math.random()*colors.length)];
     }
 
-    function getRandomPosition() {
+    function getRandomPosition(){
       let x, y;
       let attempts = 0;
-      const maxAttempts = 60;
-
-      do {
-        x = Math.random() * (window.innerWidth - 350);
-        y = Math.random() * (window.innerHeight - 150);
-
-        const distanceFromCenter = Math.sqrt(
-          Math.pow(x - centerZone.x, 2) + Math.pow(y - centerZone.y, 2)
-        );
-
-        // si hay pocos mensajes, evitamos el centro
-        if (messages.length < 10 && distanceFromCenter > centerZone.radius) {
-          return { x, y };
-        }
-        // si ya hay muchos, ubicamos donde sea
-        if (messages.length >= 10) {
-          return { x, y };
-        }
-
+      while (attempts < 60){
+        x = Math.random()*(innerWidth - 350);
+        y = Math.random()*(innerHeight - 150);
+        const d = Math.hypot(x - centerZone.x, y - centerZone.y);
+        if (messages.length < 10 && d > centerZone.radius) return {x,y};
+        if (messages.length >= 10) return {x,y};
         attempts++;
-      } while (attempts < maxAttempts);
-
-      return { x, y };
+      }
+      return {x:20,y:80};
     }
 
-    function createMessage(username, content) {
-      // Limpiar HTML básico para evitar inyecciones raras
-      const safeUser = String(username ?? "Usuario").replace(/[<>]/g, "");
-      const safeContent = String(content ?? "").replace(/[<>]/g, "");
-
+    function createMessage(username, content){
+      const safeUser = String(username ?? "Usuario").replace(/[<>]/g,"").trim() || "Usuario";
+      const safeContent = String(content ?? "").replace(/[<>]/g,"");
       if (!safeContent.trim()) return;
 
-      if (messages.length >= maxMessages) {
-        const oldestMessage = messages.shift();
-        oldestMessage.element.classList.add("fade-out");
-        setTimeout(() => {
-          if (oldestMessage.element?.parentNode) oldestMessage.element.remove();
-        }, 300);
+      if (messages.length >= maxMessages){
+        const oldest = messages.shift();
+        oldest.element.classList.add("fade-out");
+        setTimeout(()=> oldest.element?.remove(), 300);
       }
 
-      const messageDiv = document.createElement("div");
-      messageDiv.className = "message-container";
+      const div = document.createElement("div");
+      div.className = "message-container";
 
-      const position = getRandomPosition();
-      messageDiv.style.left = position.x + "px";
-      messageDiv.style.top = position.y + "px";
+      const pos = getRandomPosition();
+      div.style.left = pos.x + "px";
+      div.style.top = pos.y + "px";
 
       const initial = safeUser.charAt(0).toUpperCase() || "?";
-      const avatarColor = getRandomColor();
+      const avatarBg = getRandomColor();
 
-      messageDiv.innerHTML = `
+      div.innerHTML = `
         <div class="message-header">
-          <div class="avatar" style="background:${avatarColor}">${initial}</div>
+          <div class="avatar" style="background:${avatarBg}">${initial}</div>
           <div class="username">${safeUser}</div>
         </div>
         <div class="message-content">${safeContent}</div>
       `;
 
-      document.body.appendChild(messageDiv);
-      messages.push({ element: messageDiv, username: safeUser, content: safeContent });
-
-      debug(`✓ Mensaje: ${safeUser}: ${safeContent.substring(0, 60)}`);
+      document.body.appendChild(div);
+      messages.push({element:div, username:safeUser, content:safeContent});
     }
+
+    /********************
+     * TEST BUTTON
+     ********************/
+    document.getElementById("testBtn").addEventListener("click", () => {
+      createMessage("Sistema", "Esto es una burbuja de prueba ✅");
+    });
 
     /********************
      * SSN WEBSOCKET
      ********************/
-    function connectSSN() {
-      debug("🔌 Conectando a SSN WS…");
-      debug(`🌐 ${WS_URL}`);
+    let ws = null;
+    let reconnectTimer = null;
 
-      let ws;
+    function connect(){
+      if (!SESSION_ID){
+        setStatus(
+          `<span class="bad">❌ Falta session</span>`,
+          `Abrí: ?session=TU_SESSION_ID (ej: ?session=qtgxCBvLbF&debug=1)`,
+          "bad"
+        );
+        return;
+      }
+
+      setStatus("🔌 Conectando…", WS_URL, "warn");
+
       try {
         ws = new WebSocket(WS_URL);
-      } catch (e) {
-        debug("❌ No se pudo crear WebSocket: " + e.message);
-        setTimeout(connectSSN, 2000);
+      } catch (e){
+        setStatus(`<span class="bad">❌ WebSocket no creado</span>`, e.message, "bad");
+        scheduleReconnect();
         return;
       }
 
       ws.onopen = () => {
-        debug("✅ WebSocket conectado (canal 4).");
-        debug("⚠️ Asegurate de activar en SSN: Toggle 1 y Toggle 3 (Send chat messages to API server).");
+        setStatus(`<span class="ok">✅ Conectado</span>`, `Session: ${SESSION_ID} | Canal: 4`, "ok");
+        // burbuja de confirmación (útil para saber que el overlay dibuja)
+        createMessage("Sistema", "Conectado a SSN ✅ (ahora deberían entrar chats)");
       };
 
       ws.onmessage = (evt) => {
-        // SSN envía JSON. A veces llegan mensajes que no son chat; los filtramos.
+        // Esperamos JSON con chatmessage / chatname, pero toleramos variantes
+        let data;
         try {
-          const data = JSON.parse(evt.data);
+          data = JSON.parse(evt.data);
+        } catch {
+          if (debugMode) console.log("WS raw:", evt.data);
+          return;
+        }
 
-          // Campos típicos
-          const username =
-            data.chatname || data.username || data.author || data.name || "Usuario";
+        const username = data.chatname || data.username || data.author || data.name || "Usuario";
+        const content  = data.chatmessage || data.message || data.text || data.msg || data.content;
 
-          const content =
-            data.chatmessage || data.message || data.text || data.msg || data.content;
+        if (debugMode) console.log("WS event:", data);
 
-          // Algunos eventos vienen con `type`; si querés filtrar fuerte:
-          // if (data.type && data.type !== "chatmessage") return;
-
-          if (content && String(content).trim()) {
-            createMessage(username, content);
-          } else {
-            debug("⚠️ Evento recibido sin contenido de chat.");
-          }
-        } catch (e) {
-          debug("⚠️ Mensaje no-JSON o error parseando: " + e.message);
+        if (content && String(content).trim()){
+          createMessage(username, content);
         }
       };
 
       ws.onerror = () => {
-        debug("❌ WebSocket error.");
+        setStatus(`<span class="bad">❌ Error WebSocket</span>`, "Reintentando…", "bad");
       };
 
       ws.onclose = () => {
-        debug("🔁 WebSocket cerrado. Reintentando en 2 segundos…");
-        setTimeout(connectSSN, 2000);
+        setStatus(`<span class="warn">🔁 Desconectado</span>`, "Reintentando en 2s…", "warn");
+        scheduleReconnect();
       };
+    }
+
+    function scheduleReconnect(){
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(connect, 2000);
     }
 
     /********************
      * INIT
      ********************/
-    debug("🚀 Overlay iniciado");
-    connectSSN();
+    setStatus("🚀 Overlay iniciado", SESSION_ID ? `Esperando WS… session=${SESSION_ID}` : "Falta session en URL", SESSION_ID ? "warn" : "bad");
+    connect();
 
-    // Mensajes de prueba (podés comentar si querés)
-    setTimeout(() => createMessage("Ken Lee", "¡Increíble presentación! 🎉"), 800);
-    setTimeout(() => createMessage("Steven Black", "HECK YEAH"), 1400);
-    setTimeout(() => createMessage("Kristian Brandt", "I'm so excited! 🎬"), 2000);
-    setTimeout(() => createMessage("Fitzroy Sam", "Amazing! 😍"), 2600);
-
-    // Test manual desde consola:
-    window.testMessage = function(u, m) {
-      createMessage(u || "Test User", m || "Test message");
-    };
-    debug('💡 Consola: testMessage("Nombre","Mensaje")');
-
-    // Si redimensionás la ventana, recalculamos el centro
-    window.addEventListener("resize", () => {
-      centerZone.x = window.innerWidth / 2;
-      centerZone.y = window.innerHeight / 2;
-      debug("📐 Resize: recálculo centerZone");
+    addEventListener("resize", () => {
+      centerZone.x = innerWidth/2;
+      centerZone.y = innerHeight/2;
     });
   </script>
 </body>
